@@ -29,6 +29,9 @@ void main() {
     expect(localizations.copyButtonLabel, isNotNull);
     expect(localizations.cutButtonLabel, isNotNull);
     expect(localizations.scanTextButtonLabel, isNotNull);
+    expect(localizations.lookUpButtonLabel, isNotNull);
+    expect(localizations.searchWebButtonLabel, isNotNull);
+    expect(localizations.shareButtonLabel, isNotNull);
     expect(localizations.okButtonLabel, isNotNull);
     expect(localizations.pasteButtonLabel, isNotNull);
     expect(localizations.selectAllButtonLabel, isNotNull);
@@ -38,6 +41,7 @@ void main() {
     expect(localizations.timePickerHourModeAnnouncement, isNotNull);
     expect(localizations.timePickerMinuteModeAnnouncement, isNotNull);
     expect(localizations.modalBarrierDismissLabel, isNotNull);
+    expect(localizations.menuDismissLabel, isNotNull);
     expect(localizations.drawerLabel, isNotNull);
     expect(localizations.menuBarMenuLabel, isNotNull);
     expect(localizations.popupMenuLabel, isNotNull);

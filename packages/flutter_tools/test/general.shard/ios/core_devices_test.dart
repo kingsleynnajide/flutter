@@ -5,6 +5,10 @@
 import 'package:file/memory.dart';
 import 'package:file_testing/file_testing.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
+<<<<<<< HEAD
+=======
+import 'package:flutter_tools/src/base/io.dart';
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/version.dart';
 import 'package:flutter_tools/src/ios/core_devices.dart';
@@ -35,7 +39,11 @@ void main() {
         version: Version(14, 0, 0),
       );
       xcode = Xcode.test(
+<<<<<<< HEAD
         processManager: FakeProcessManager.any(),
+=======
+        processManager: fakeProcessManager,
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
         xcodeProjectInterpreter: xcodeProjectInterpreter,
       );
       deviceControl = IOSCoreDeviceControl(
@@ -86,6 +94,10 @@ void main() {
     setUp(() {
       logger = BufferLogger.test();
       fakeProcessManager = FakeProcessManager.empty();
+<<<<<<< HEAD
+=======
+      // TODO(fujino): make this FakeProcessManager.empty()
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
       xcode = Xcode.test(processManager: FakeProcessManager.any());
       deviceControl = IOSCoreDeviceControl(
         logger: logger,
@@ -1322,6 +1334,40 @@ invalid JSON
     });
 
     group('list devices', () {
+<<<<<<< HEAD
+=======
+      testWithoutContext('Handles FileSystemException deleting temp directory', () async {
+        final Directory tempDir = fileSystem.systemTempDirectory
+            .childDirectory('core_devices.rand0');
+        final File tempFile = tempDir.childFile('core_device_list.json');
+        final List<String> args = <String>[
+          'xcrun',
+          'devicectl',
+          'list',
+          'devices',
+          '--timeout',
+          '5',
+          '--json-output',
+          tempFile.path,
+        ];
+        fakeProcessManager.addCommand(FakeCommand(
+          command: args,
+          onRun: () {
+            // Simulate that this command threw and simulataneously the OS
+            // deleted the temp directory
+            expect(tempFile, exists);
+            tempDir.deleteSync(recursive: true);
+            expect(tempFile, isNot(exists));
+            throw ProcessException(args.first, args.sublist(1));
+          },
+        ));
+
+        await deviceControl.getCoreDevices();
+        expect(logger.errorText, contains('Error executing devicectl: ProcessException'));
+        expect(fakeProcessManager, hasNoRemainingExpectations);
+      });
+
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
       testWithoutContext('No devices', () async {
         const String deviceControlOutput = '''
 {

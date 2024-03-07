@@ -9,7 +9,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/mock_canvas.dart';
 import '../widgets/semantics_tester.dart';
 import 'feedback_tester.dart';
 
@@ -797,6 +796,8 @@ void main() {
 
   testWidgets('RadioListTile onFocusChange callback', (WidgetTester tester) async {
     final FocusNode node = FocusNode(debugLabel: 'RadioListTile onFocusChange');
+    addTearDown(node.dispose);
+
     bool gotFocus = false;
     await tester.pumpWidget(
       MaterialApp(
@@ -1012,7 +1013,7 @@ void main() {
     );
   });
 
-  testWidgets('RadioListTile respects hoverColor', (WidgetTester tester) async {
+  testWidgets('Material3 - RadioListTile respects hoverColor', (WidgetTester tester) async {
     tester.binding.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
     int? groupValue = 0;
     final Color? hoverColor = Colors.orange[500];
@@ -1078,7 +1079,7 @@ void main() {
     );
   });
 
-  testWidgets('RadioListTile respects overlayColor in active/pressed/hovered states', (WidgetTester tester) async {
+  testWidgets('Material3 - RadioListTile respects overlayColor in active/pressed/hovered states', (WidgetTester tester) async {
     tester.binding.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
 
     const Color fillColor = Color(0xFF000000);
@@ -1339,7 +1340,7 @@ void main() {
     // support is deprecated and the APIs are removed, these tests
     // can be deleted.
 
-    testWidgets('RadioListTile respects overlayColor in active/pressed/hovered states', (WidgetTester tester) async {
+    testWidgets('Material2 - RadioListTile respects overlayColor in active/pressed/hovered states', (WidgetTester tester) async {
       tester.binding.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
 
       const Color fillColor = Color(0xFF000000);
@@ -1443,7 +1444,7 @@ void main() {
       );
     });
 
-    testWidgets('RadioListTile respects hoverColor', (WidgetTester tester) async {
+    testWidgets('Material2 - RadioListTile respects hoverColor', (WidgetTester tester) async {
       tester.binding.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
       int? groupValue = 0;
       final Color? hoverColor = Colors.orange[500];

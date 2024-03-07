@@ -598,7 +598,7 @@ void main() {
 
     final Offset actionsTopLeft = tester.getTopLeft(find.byType(OverflowBar));
     final Offset bannerTopLeft = tester.getTopLeft(find.byType(MaterialBanner));
-    expect(actionsTopLeft.dx - 8, bannerTopLeft.dx); // actions OverflowBar is padded by 8
+    expect(actionsTopLeft.dx - 8, moreOrLessEquals(bannerTopLeft.dx)); // actions OverflowBar is padded by 8
   });
 
   testWidgets('Single action laid out beside content but aligned to the trailing edge when presented by ScaffoldMessenger - RTL', (WidgetTester tester) async {
@@ -638,7 +638,7 @@ void main() {
 
     final Offset actionsTopLeft = tester.getTopLeft(find.byType(OverflowBar));
     final Offset bannerTopLeft = tester.getTopLeft(find.byType(MaterialBanner));
-    expect(actionsTopLeft.dx - 8, bannerTopLeft.dx); // actions OverflowBar is padded by 8
+    expect(actionsTopLeft.dx - 8, moreOrLessEquals(bannerTopLeft.dx)); // actions OverflowBar is padded by 8
   });
 
   testWidgets('Actions laid out below content if forced override', (WidgetTester tester) async {

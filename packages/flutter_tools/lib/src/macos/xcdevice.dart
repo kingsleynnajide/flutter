@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 import '../artifacts.dart';
 import '../base/file_system.dart';
@@ -69,6 +70,10 @@ class XCDevice {
     required Platform platform,
     required IProxy iproxy,
     required FileSystem fileSystem,
+<<<<<<< HEAD
+=======
+    required Analytics analytics,
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
     @visibleForTesting
     IOSCoreDeviceControl? coreDeviceControl,
     XcodeDebug? xcodeDebug,
@@ -100,7 +105,8 @@ class XCDevice {
         fileSystem: fileSystem,
       ),
       _iProxy = iproxy,
-      _xcode = xcode {
+      _xcode = xcode,
+      _analytics = analytics {
 
     _setupDeviceIdentifierByEventStream();
   }
@@ -120,6 +126,10 @@ class XCDevice {
   final IProxy _iProxy;
   final IOSCoreDeviceControl _coreDeviceControl;
   final XcodeDebug _xcodeDebug;
+<<<<<<< HEAD
+=======
+  final Analytics _analytics;
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
 
   List<Object>? _cachedListResults;
 
@@ -546,6 +556,8 @@ class XCDevice {
           if (errorMessage != null) {
             if (errorMessage.contains('not paired')) {
               UsageEvent('device', 'ios-trust-failure', flutterUsage: globals.flutterUsage).send();
+              _analytics.send(Event.appleUsageEvent(workflow: 'device', parameter: 'ios-trust-failure'));
+
             }
             _logger.printTrace(errorMessage);
           }

@@ -5,9 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../foundation/leak_tracking.dart';
-import '../rendering/mock_canvas.dart';
-
 /// Adds the basic requirements for a Chip.
 Widget wrapForChip({
   required Widget child,
@@ -44,6 +41,16 @@ Material getMaterial(WidgetTester tester) {
       matching: find.byType(Material),
     ),
   );
+}
+
+IconThemeData getIconData(WidgetTester tester) {
+  final IconTheme iconTheme = tester.firstWidget(
+    find.descendant(
+      of: find.byType(RawChip),
+      matching: find.byType(IconTheme),
+    ),
+  );
+  return iconTheme.data;
 }
 
 DefaultTextStyle getLabelStyle(WidgetTester tester, String labelText) {
@@ -85,7 +92,10 @@ void main() {
     );
 
     // Test default chip size.
-    expect(tester.getSize(find.byType(ActionChip)), const Size(190.0, 48.0));
+    expect(
+      tester.getSize(find.byType(ActionChip)),
+      within<Size>(distance: 0.01, from: const Size(189.1, 48.0)),
+    );
     // Test default label style.
     expect(
       getLabelStyle(tester, label).style.color!.value,
@@ -156,7 +166,10 @@ void main() {
     );
 
     // Test default chip size.
-    expect(tester.getSize(find.byType(ActionChip)), const Size(190.0, 48.0));
+    expect(
+      tester.getSize(find.byType(ActionChip)),
+      within<Size>(distance: 0.01, from: const Size(189.1, 48.0)),
+    );
     // Test default label style.
     expect(
       getLabelStyle(tester, label).style.color!.value,
@@ -321,7 +334,7 @@ void main() {
     );
   });
 
-  testWidgetsWithLeakTracking('ActionChip can be tapped', (WidgetTester tester) async {
+  testWidgets('ActionChip can be tapped', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Material(
@@ -337,12 +350,37 @@ void main() {
     expect(tester.takeException(), null);
   });
 
-  testWidgetsWithLeakTracking('ActionChip clipBehavior properly passes through to the Material', (WidgetTester tester) async {
+  testWidgets('ActionChip clipBehavior properly passes through to the Material', (WidgetTester tester) async {
     const Text label = Text('label');
     await tester.pumpWidget(wrapForChip(child: ActionChip(label: label, onPressed: () { })));
     checkChipMaterialClipBehavior(tester, Clip.none);
 
     await tester.pumpWidget(wrapForChip(child: ActionChip(label: label, clipBehavior: Clip.antiAlias, onPressed: () { })));
     checkChipMaterialClipBehavior(tester, Clip.antiAlias);
+  });
+
+  testWidgets('ActionChip uses provided iconTheme', (WidgetTester tester) async {
+    Widget buildChip({ IconThemeData? iconTheme }) {
+      return MaterialApp(
+        home: Material(
+          child: ActionChip(
+            iconTheme: iconTheme,
+            avatar: const Icon(Icons.add),
+            onPressed: () { },
+            label: const Text('action chip'),
+          ),
+        ),
+      );
+    }
+
+    // Test default icon theme.
+    await tester.pumpWidget(buildChip());
+
+    expect(getIconData(tester).color, ThemeData().colorScheme.primary);
+
+    // Test provided icon theme.
+    await tester.pumpWidget(buildChip(iconTheme: const IconThemeData(color: Color(0xff00ff00))));
+
+    expect(getIconData(tester).color, const Color(0xff00ff00));
   });
 }

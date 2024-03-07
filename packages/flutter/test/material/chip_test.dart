@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// This file is run as part of a reduced test set in CI on Mac and Windows
+// machines.
+@Tags(<String>['reduced-test-set'])
+library;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../rendering/mock_canvas.dart';
 import '../widgets/semantics_tester.dart';
 import 'feedback_tester.dart';
 
@@ -139,7 +142,6 @@ Widget chipWithOptionalDeleteButton({
   Key? labelKey,
   required bool deletable,
   TextDirection textDirection = TextDirection.ltr,
-  bool useDeleteButtonTooltip = true,
   String? chipTooltip,
   String? deleteButtonTooltipMessage,
   VoidCallback? onPressed = doNothing,
@@ -155,7 +157,6 @@ Widget chipWithOptionalDeleteButton({
           onPressed: onPressed,
           onDeleted: deletable ? doNothing : null,
           deleteIcon: Icon(Icons.close, key: deleteButtonKey),
-          useDeleteButtonTooltip: useDeleteButtonTooltip,
           deleteButtonTooltipMessage: deleteButtonTooltipMessage,
           label: Text(
             deletable
@@ -639,7 +640,7 @@ void main() {
     },
   );
 
-  testWidgets('delete button tap target is the right proportion of the chip', (WidgetTester tester) async {
+  testWidgets('Delete button tap target is the right proportion of the chip', (WidgetTester tester) async {
     final UniqueKey deleteKey = UniqueKey();
     bool calledDelete = false;
     await tester.pumpWidget(
@@ -657,12 +658,15 @@ void main() {
         ),
       ),
     );
-    await tester.tapAt(tester.getCenter(find.byKey(deleteKey)) - const Offset(24.0, 0.0));
+
+    // Test correct tap target size.
+    await tester.tapAt(tester.getCenter(find.byKey(deleteKey)) - const Offset(18.0, 0.0)); // Half the width of the delete button + right label padding.
     await tester.pump();
     expect(calledDelete, isTrue);
     calledDelete = false;
 
-    await tester.tapAt(tester.getCenter(find.byKey(deleteKey)) - const Offset(25.0, 0.0));
+    // Test incorrect tap target size.
+    await tester.tapAt(tester.getCenter(find.byKey(deleteKey)) - const Offset(19.0, 0.0));
     await tester.pump();
     expect(calledDelete, isFalse);
     calledDelete = false;
@@ -700,9 +704,11 @@ void main() {
 
   testWidgets('Chip elements are ordered horizontally for locale', (WidgetTester tester) async {
     final UniqueKey iconKey = UniqueKey();
+    late final OverlayEntry entry;
+    addTearDown(() => entry..remove()..dispose());
     final Widget test = Overlay(
       initialEntries: <OverlayEntry>[
-        OverlayEntry(
+        entry = OverlayEntry(
           builder: (BuildContext context) {
             return Material(
               child: Chip(
@@ -877,11 +883,14 @@ void main() {
   testWidgets('Chip padding - LTR', (WidgetTester tester) async {
     final GlobalKey keyA = GlobalKey();
     final GlobalKey keyB = GlobalKey();
+
+    late final OverlayEntry entry;
+    addTearDown(() => entry..remove()..dispose());
     await tester.pumpWidget(
       wrapForChip(
         child: Overlay(
           initialEntries: <OverlayEntry>[
-            OverlayEntry(
+            entry = OverlayEntry(
               builder: (BuildContext context) {
                 return Material(
                   child: Center(
@@ -913,12 +922,16 @@ void main() {
   testWidgets('Chip padding - RTL', (WidgetTester tester) async {
     final GlobalKey keyA = GlobalKey();
     final GlobalKey keyB = GlobalKey();
+
+    late final OverlayEntry entry;
+    addTearDown(() => entry..remove()..dispose());
+
     await tester.pumpWidget(
       wrapForChip(
         textDirection: TextDirection.rtl,
         child: Overlay(
           initialEntries: <OverlayEntry>[
-            OverlayEntry(
+            entry = OverlayEntry(
               builder: (BuildContext context) {
                 return Material(
                   child: Center(
@@ -1769,7 +1782,7 @@ void main() {
               labelStyle: TextStyle(height: 4), // inherit: true
             ),
           ),
-          child: const Chip(label: Text('Label')), // labeStyle: null
+          child: const Chip(label: Text('Label')), // labelStyle: null
         ),
       );
     }
@@ -2632,6 +2645,7 @@ void main() {
 
   testWidgets('Chip uses stateful color for text color in different states', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
 
     const Color pressedColor = Color(0x00000001);
     const Color hoverColor = Color(0x00000002);
@@ -2720,6 +2734,7 @@ void main() {
 
   testWidgets('Chip uses stateful border side color in different states', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
 
     const Color pressedColor = Color(0x00000001);
     const Color hoverColor = Color(0x00000002);
@@ -2800,6 +2815,7 @@ void main() {
 
   testWidgets('Chip uses stateful border side color from resolveWith', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
 
     const Color pressedColor = Color(0x00000001);
     const Color hoverColor = Color(0x00000002);
@@ -2881,6 +2897,7 @@ void main() {
 
   testWidgets('Chip uses stateful nullable border side color from resolveWith', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
 
     const Color pressedColor = Color(0x00000001);
     const Color hoverColor = Color(0x00000002);
@@ -2970,6 +2987,7 @@ void main() {
 
   testWidgets('Chip uses stateful shape in different states', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode();
+    addTearDown(focusNode.dispose);
     OutlinedBorder? getShape(Set<MaterialState> states) {
 
       if (states.contains(MaterialState.disabled)) {
@@ -3197,31 +3215,6 @@ void main() {
     expect(box.size, equals(const Size(128, 24.0 + 16.0)));
   });
 
-  testWidgets('Chip delete button tooltip can be disabled using useDeleteButtonTooltip', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      chipWithOptionalDeleteButton(
-        deletable: true,
-        useDeleteButtonTooltip: false,
-      ),
-    );
-
-    // Tap at the delete icon of the chip, which is at the right side of the
-    // chip
-    final Offset topRightOfInkwell = tester.getTopLeft(find.byType(InkWell).first);
-    final Offset tapLocationOfDeleteButton = topRightOfInkwell + const Offset(8, 8);
-    final TestGesture tapGesture = await tester.startGesture(tapLocationOfDeleteButton);
-
-    await tester.pump();
-
-    // Wait for some more time while pressing and holding the delete button
-    await tester.pumpAndSettle();
-
-    // There should be no delete button tooltip
-    expect(findTooltipContainer('Delete'), findsNothing);
-
-    await tapGesture.up();
-  });
-
   testWidgets('Chip delete button tooltip is disabled if deleteButtonTooltipMessage is empty', (WidgetTester tester) async {
     final UniqueKey deleteButtonKey = UniqueKey();
     await tester.pumpWidget(
@@ -3338,6 +3331,7 @@ void main() {
 
   testWidgets('Chip highlight color is drawn on top of the backgroundColor', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode(debugLabel: 'RawChip');
+    addTearDown(focusNode.dispose);
     tester.binding.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
     const Color backgroundColor = Color(0xff00ff00);
 
@@ -3457,6 +3451,225 @@ void main() {
 
     // Enabled & selected chip should have the provided selectedColor.
     expect(getMaterialBox(tester), paints..rrect(color: selectedColor));
+  });
+
+  testWidgets('Delete button tap target area does not include label', (WidgetTester tester) async {
+    bool calledDelete = false;
+    await tester.pumpWidget(
+      wrapForChip(
+        child: Column(
+          children: <Widget>[
+            Chip(
+              label: const Text('Chip'),
+              onDeleted: () {
+                calledDelete = true;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Tap on the delete button.
+    await tester.tapAt(tester.getCenter(find.byType(Icon)));
+    await tester.pump();
+    expect(calledDelete, isTrue);
+    calledDelete = false;
+
+    final Offset labelCenter = tester.getCenter(find.text('Chip'));
+
+    // Tap on the label.
+    await tester.tapAt(labelCenter);
+    await tester.pump();
+    expect(calledDelete, isFalse);
+
+    // Tap before end of the label.
+    final Size labelSize = tester.getSize(find.text('Chip'));
+    await tester.tapAt(Offset(labelCenter.dx + (labelSize.width / 2) - 1, labelCenter.dy));
+    await tester.pump();
+    expect(calledDelete, isFalse);
+
+    // Tap after end of the label.
+    await tester.tapAt(Offset(labelCenter.dx + (labelSize.width / 2) + 0.01, labelCenter.dy));
+    await tester.pump();
+    expect(calledDelete, isTrue);
+  });
+
+  // This is a regression test for https://github.com/flutter/flutter/pull/133615.
+  testWidgets('Material3 - Custom shape without provided side uses default side', (WidgetTester tester) async {
+    final ThemeData theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: const Material(
+          child: Center(
+            child: RawChip(
+              // No side provided.
+              shape: StadiumBorder(),
+              label: Text('RawChip'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Chip should have the default side.
+    expect(
+      getMaterial(tester).shape,
+      StadiumBorder(side: BorderSide(color: theme.colorScheme.outline)),
+    );
+  });
+
+  testWidgets("Material3 - RawChip.shape's side is used when provided", (WidgetTester tester) async {
+    Widget buildChip({ OutlinedBorder? shape, BorderSide? side }) {
+      return MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Material(
+          child: Center(
+            child: RawChip(
+              shape: shape,
+              side: side,
+              label: const Text('RawChip'),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Test [RawChip.shape] with a side.
+    await tester.pumpWidget(buildChip(
+      shape: const RoundedRectangleBorder(
+        side: BorderSide(color: Color(0xffff00ff)),
+        borderRadius: BorderRadius.all(Radius.circular(7.0)),
+      )),
+    );
+
+    // Chip should have the provided shape and the side from [RawChip.shape].
+    expect(
+      getMaterial(tester).shape,
+      const RoundedRectangleBorder(
+        side: BorderSide(color: Color(0xffff00ff)),
+        borderRadius: BorderRadius.all(Radius.circular(7.0)),
+      ),
+    );
+
+    // Test [RawChip.shape] with a side and [RawChip.side].
+    await tester.pumpWidget(buildChip(
+      shape: const RoundedRectangleBorder(
+        side: BorderSide(color: Color(0xffff00ff)),
+        borderRadius: BorderRadius.all(Radius.circular(7.0)),
+      ),
+      side: const BorderSide(color: Color(0xfffff000))),
+    );
+    await tester.pumpAndSettle();
+
+    // Chip use shape from [RawChip.shape] and the side from [RawChip.side].
+    // [RawChip.shape]'s side should be ignored.
+    expect(
+      getMaterial(tester).shape,
+      const RoundedRectangleBorder(
+        side: BorderSide(color: Color(0xfffff000)),
+        borderRadius: BorderRadius.all(Radius.circular(7.0)),
+      ),
+    );
+  });
+
+  testWidgets('Material3 - Chip.iconTheme respects default iconTheme.size', (WidgetTester tester) async {
+    Widget buildChip({ IconThemeData? iconTheme }) {
+      return MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Material(
+            child: Center(
+              child: RawChip(
+                iconTheme: iconTheme,
+                avatar: const Icon(Icons.add),
+                label: const SizedBox(width: 100, height: 100),
+                onSelected: (bool newValue) { },
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildChip(iconTheme: const IconThemeData(color: Color(0xff332211))));
+
+    // Icon should have the default chip iconSize.
+    expect(getIconData(tester).size, 18.0);
+    expect(getIconData(tester).color, const Color(0xff332211));
+
+    // Icon should have the provided iconSize.
+    await tester.pumpWidget(buildChip(iconTheme: const IconThemeData(color: Color(0xff112233), size: 23.0)));
+    await tester.pumpAndSettle();
+
+    expect(getIconData(tester).size, 23.0);
+    expect(getIconData(tester).color, const Color(0xff112233));
+  });
+
+  // This is a regression test for https://github.com/flutter/flutter/issues/138287.
+  testWidgets("Enabling and disabling Chip with Tooltip doesn't throw an exception", (WidgetTester tester) async {
+    bool isEnabled = true;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Material(
+        child: Center(
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  RawChip(
+                    tooltip: 'tooltip',
+                    isEnabled: isEnabled,
+                    onPressed: isEnabled ? () {} : null,
+                    label: const Text('RawChip'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        isEnabled = !isEnabled;
+                      });
+                    },
+                    child: Text('${isEnabled ? 'Disable' : 'Enable'} Chip'),
+                  )
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    ));
+
+    // Tap the elevated button to disable the chip with a tooltip.
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Disable Chip'));
+    await tester.pumpAndSettle();
+
+    // No exception should be thrown.
+    expect(tester.takeException(), isNull);
+
+    // Tap the elevated button to enable the chip with a tooltip.
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Enable Chip'));
+    await tester.pumpAndSettle();
+
+    // No exception should be thrown.
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Delete button is visible RawChip is disabled', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      wrapForChip(
+        child: RawChip(
+          isEnabled: false,
+          label: const Text('Label'),
+          onDeleted: () { },
+        )
+      ),
+    );
+
+    // Delete button should be visible.
+    expectLater(find.byType(RawChip), matchesGoldenFile('raw_chip.disabled.delete_button.png'));
   });
 
   group('Material 2', () {

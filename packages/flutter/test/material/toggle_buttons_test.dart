@@ -11,8 +11,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../rendering/mock_canvas.dart';
 import '../widgets/semantics_tester.dart';
 
 const double _defaultBorderWidth = 1.0;
@@ -817,6 +815,8 @@ void main() {
     expect(inkFeatures, paints..rect(color: theme.colorScheme.onSurface.withOpacity(0.12)));
 
     await hoverGesture.removePointer();
+
+    focusNode.dispose();
   });
 
   testWidgets('Default InkWell colors - selected', (WidgetTester tester) async {
@@ -882,6 +882,8 @@ void main() {
     expect(inkFeatures, paints..rect(color: theme.colorScheme.primary.withOpacity(0.12)));
 
     await hoverGesture.removePointer();
+
+    focusNode.dispose();
   });
 
   testWidgets('Custom InkWell colors', (WidgetTester tester) async {
@@ -951,6 +953,8 @@ void main() {
     expect(inkFeatures, paints..rect(color: focusColor));
 
     await hoverGesture.removePointer();
+
+    focusNode.dispose();
   });
 
   testWidgets(
@@ -1863,6 +1867,10 @@ void main() {
     expect(toggleButtonElevation('two'), 0);
 
     await hoverGesture.removePointer();
+
+    for (final FocusNode n in focusNodes) {
+      n.dispose();
+    }
   });
 
   testWidgets('Toggle buttons height matches MaterialTapTargetSize.padded height', (WidgetTester tester) async {

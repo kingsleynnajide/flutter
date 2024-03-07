@@ -6,13 +6,13 @@ import 'dart:math' show max, min;
 import 'dart:ui' as ui show
   BoxHeightStyle,
   BoxWidthStyle,
+  GlyphInfo,
   LineMetrics,
   Paragraph,
   ParagraphBuilder,
   ParagraphConstraints,
   ParagraphStyle,
   PlaceholderAlignment,
-  TextHeightBehavior,
   TextStyle;
 
 import 'package:flutter/foundation.dart';
@@ -22,14 +22,17 @@ import 'basic_types.dart';
 import 'inline_span.dart';
 import 'placeholder_span.dart';
 import 'strut_style.dart';
+import 'text_scaler.dart';
 import 'text_span.dart';
 
+export 'dart:ui' show LineMetrics;
 export 'package:flutter/services.dart' show TextRange, TextSelection;
 
-// The default font size if none is specified. This should be kept in
-// sync with the default values in text_style.dart, as well as the
-// defaults set in the engine (eg, LibTxt's text_style.h, paragraph_style.h).
-const double _kDefaultFontSize = 14.0;
+/// The default font size if none is specified.
+///
+/// This should be kept in sync with the defaults set in the engine (e.g.,
+/// LibTxt's text_style.h, paragraph_style.h).
+const double kDefaultFontSize = 14.0;
 
 /// How overflowing text should be handled.
 ///
@@ -54,8 +57,6 @@ enum TextOverflow {
 ///
 /// Placeholders specify an empty space in the text layout, which is used
 /// to later render arbitrary inline widgets into defined by a [WidgetSpan].
-///
-/// The [size] and [alignment] properties are required and cannot be null.
 ///
 /// See also:
 ///
@@ -278,14 +279,6 @@ class _TextLayout {
   // object when it's no logner needed.
   ui.Paragraph _paragraph;
 
-  /// Whether to enable the rounding in _applyFloatingPointHack and SkParagraph.
-  static const bool _shouldApplyFloatingPointHack = !bool.hasEnvironment('SKPARAGRAPH_REMOVE_ROUNDING_HACK');
-
-  // TODO(LongCatIsLooong): https://github.com/flutter/flutter/issues/31707
-  // remove this hack as well as the flooring in `layout`.
-  @pragma('vm:prefer-inline')
-  static double _applyFloatingPointHack(double layoutValue) => _shouldApplyFloatingPointHack ? layoutValue.ceilToDouble() : layoutValue;
-
   /// Whether this layout has been invalidated and disposed.
   ///
   /// Only for use when asserts are enabled.
@@ -295,23 +288,23 @@ class _TextLayout {
   ///
   /// If a line ends with trailing spaces, the trailing spaces may extend
   /// outside of the horizontal paint bounds defined by [width].
-  double get width => _applyFloatingPointHack(_paragraph.width);
+  double get width => _paragraph.width;
 
   /// The vertical space required to paint this text.
-  double get height => _applyFloatingPointHack(_paragraph.height);
+  double get height => _paragraph.height;
 
   /// The width at which decreasing the width of the text would prevent it from
   /// painting itself completely within its bounds.
-  double get minIntrinsicLineExtent => _applyFloatingPointHack(_paragraph.minIntrinsicWidth);
+  double get minIntrinsicLineExtent => _paragraph.minIntrinsicWidth;
 
   /// The width at which increasing the width of the text no longer decreases the height.
   ///
   /// Includes trailing spaces if any.
-  double get maxIntrinsicLineExtent => _applyFloatingPointHack(_paragraph.maxIntrinsicWidth);
+  double get maxIntrinsicLineExtent => _paragraph.maxIntrinsicWidth;
 
   /// The distance from the left edge of the leftmost glyph to the right edge of
   /// the rightmost glyph in the paragraph.
-  double get longestLine => _applyFloatingPointHack(_paragraph.longestLine);
+  double get longestLine => _paragraph.longestLine;
 
   /// Returns the distance from the top of the text to the first baseline of the
   /// given type.
@@ -360,12 +353,6 @@ class _TextPainterLayoutCacheWithOffset {
   ui.Paragraph get paragraph => layout._paragraph;
 
   static double _contentWidthFor(double minWidth, double maxWidth, TextWidthBasis widthBasis, _TextLayout layout) {
-    // TODO(LongCatIsLooong): remove the rounding when _applyFloatingPointHack
-    // is removed.
-    if (_TextLayout._shouldApplyFloatingPointHack) {
-      minWidth = minWidth.floorToDouble();
-      maxWidth = maxWidth.floorToDouble();
-    }
     return switch (widthBasis) {
       TextWidthBasis.longestLine => clampDouble(layout.longestLine, minWidth, maxWidth),
       TextWidthBasis.parent => clampDouble(layout.maxIntrinsicLineExtent, minWidth, maxWidth),
@@ -453,6 +440,8 @@ final class _EmptyLineCaretMetrics implements _CaretMetrics {
   final double lineVerticalOffset;
 }
 
+const String _flutterPaintingLibrary = 'package:flutter/painting.dart';
+
 /// An object that paints a [TextSpan] tree into a [Canvas].
 ///
 /// To use a [TextPainter], follow these steps:
@@ -483,32 +472,47 @@ class TextPainter {
   /// The `text` and `textDirection` arguments are optional but [text] and
   /// [textDirection] must be non-null before calling [layout].
   ///
-  /// The [textAlign] property must not be null.
-  ///
   /// The [maxLines] property, if non-null, must be greater than zero.
   TextPainter({
     InlineSpan? text,
     TextAlign textAlign = TextAlign.start,
     TextDirection? textDirection,
+    @Deprecated(
+      'Use textScaler instead. '
+      'Use of textScaleFactor was deprecated in preparation for the upcoming nonlinear text scaling support. '
+      'This feature was deprecated after v3.12.0-2.0.pre.',
+    )
     double textScaleFactor = 1.0,
+    TextScaler textScaler = TextScaler.noScaling,
     int? maxLines,
     String? ellipsis,
     Locale? locale,
     StrutStyle? strutStyle,
     TextWidthBasis textWidthBasis = TextWidthBasis.parent,
-    ui.TextHeightBehavior? textHeightBehavior,
+    TextHeightBehavior? textHeightBehavior,
   }) : assert(text == null || text.debugAssertIsValid()),
        assert(maxLines == null || maxLines > 0),
+       assert(textScaleFactor == 1.0 || identical(textScaler, TextScaler.noScaling), 'Use textScaler instead.'),
        _text = text,
        _textAlign = textAlign,
        _textDirection = textDirection,
-       _textScaleFactor = textScaleFactor,
+       _textScaler = textScaler == TextScaler.noScaling ? TextScaler.linear(textScaleFactor) : textScaler,
        _maxLines = maxLines,
        _ellipsis = ellipsis,
        _locale = locale,
        _strutStyle = strutStyle,
        _textWidthBasis = textWidthBasis,
-       _textHeightBehavior = textHeightBehavior;
+       _textHeightBehavior = textHeightBehavior {
+    // TODO(polina-c): stop duplicating code across disposables
+    // https://github.com/flutter/flutter/issues/137435
+    if (kFlutterMemoryAllocationsEnabled) {
+      FlutterMemoryAllocations.instance.dispatchObjectCreated(
+        library: _flutterPaintingLibrary,
+        className: '$TextPainter',
+        object: this,
+      );
+    }
+  }
 
   /// Computes the width of a configured [TextPainter].
   ///
@@ -522,21 +526,31 @@ class TextPainter {
     required InlineSpan text,
     required TextDirection textDirection,
     TextAlign textAlign = TextAlign.start,
+    @Deprecated(
+      'Use textScaler instead. '
+      'Use of textScaleFactor was deprecated in preparation for the upcoming nonlinear text scaling support. '
+      'This feature was deprecated after v3.12.0-2.0.pre.',
+    )
     double textScaleFactor = 1.0,
+    TextScaler textScaler = TextScaler.noScaling,
     int? maxLines,
     String? ellipsis,
     Locale? locale,
     StrutStyle? strutStyle,
     TextWidthBasis textWidthBasis = TextWidthBasis.parent,
-    ui.TextHeightBehavior? textHeightBehavior,
+    TextHeightBehavior? textHeightBehavior,
     double minWidth = 0.0,
     double maxWidth = double.infinity,
   }) {
+    assert(
+      textScaleFactor == 1.0 || identical(textScaler, TextScaler.noScaling),
+      'Use textScaler instead.',
+    );
     final TextPainter painter = TextPainter(
       text: text,
       textAlign: textAlign,
       textDirection: textDirection,
-      textScaleFactor: textScaleFactor,
+      textScaler: textScaler == TextScaler.noScaling ? TextScaler.linear(textScaleFactor) : textScaler,
       maxLines: maxLines,
       ellipsis: ellipsis,
       locale: locale,
@@ -564,21 +578,31 @@ class TextPainter {
     required InlineSpan text,
     required TextDirection textDirection,
     TextAlign textAlign = TextAlign.start,
+    @Deprecated(
+      'Use textScaler instead. '
+      'Use of textScaleFactor was deprecated in preparation for the upcoming nonlinear text scaling support. '
+      'This feature was deprecated after v3.12.0-2.0.pre.',
+    )
     double textScaleFactor = 1.0,
+    TextScaler textScaler = TextScaler.noScaling,
     int? maxLines,
     String? ellipsis,
     Locale? locale,
     StrutStyle? strutStyle,
     TextWidthBasis textWidthBasis = TextWidthBasis.parent,
-    ui.TextHeightBehavior? textHeightBehavior,
+    TextHeightBehavior? textHeightBehavior,
     double minWidth = 0.0,
     double maxWidth = double.infinity,
   }) {
+    assert(
+      textScaleFactor == 1.0 || identical(textScaler, TextScaler.noScaling),
+      'Use textScaler instead.',
+    );
     final TextPainter painter = TextPainter(
       text: text,
       textAlign: textAlign,
       textDirection: textDirection,
-      textScaleFactor: textScaleFactor,
+      textScaler: textScaler == TextScaler.noScaling ? TextScaler.linear(textScaleFactor) : textScaler,
       maxLines: maxLines,
       ellipsis: ellipsis,
       locale: locale,
@@ -693,7 +717,7 @@ class TextPainter {
   ///
   /// After this is set, you must call [layout] before the next call to [paint].
   ///
-  /// The [textAlign] property must not be null. It defaults to [TextAlign.start].
+  /// The [textAlign] property defaults to [TextAlign.start].
   TextAlign get textAlign => _textAlign;
   TextAlign _textAlign;
   set textAlign(TextAlign value) {
@@ -731,19 +755,48 @@ class TextPainter {
     _layoutTemplate = null; // Shouldn't really matter, but for strict correctness...
   }
 
+  /// Deprecated. Will be removed in a future version of Flutter. Use
+  /// [textScaler] instead.
+  ///
   /// The number of font pixels for each logical pixel.
   ///
   /// For example, if the text scale factor is 1.5, text will be 50% larger than
   /// the specified font size.
   ///
   /// After this is set, you must call [layout] before the next call to [paint].
-  double get textScaleFactor => _textScaleFactor;
-  double _textScaleFactor;
+  @Deprecated(
+    'Use textScaler instead. '
+    'Use of textScaleFactor was deprecated in preparation for the upcoming nonlinear text scaling support. '
+    'This feature was deprecated after v3.12.0-2.0.pre.',
+  )
+  double get textScaleFactor => textScaler.textScaleFactor;
+  @Deprecated(
+    'Use textScaler instead. '
+    'Use of textScaleFactor was deprecated in preparation for the upcoming nonlinear text scaling support. '
+    'This feature was deprecated after v3.12.0-2.0.pre.',
+  )
   set textScaleFactor(double value) {
-    if (_textScaleFactor == value) {
+    textScaler = TextScaler.linear(value);
+  }
+
+  /// {@template flutter.painting.textPainter.textScaler}
+  /// The font scaling strategy to use when laying out and rendering the text.
+  ///
+  /// The value usually comes from [MediaQuery.textScalerOf], which typically
+  /// reflects the user-specified text scaling value in the platform's
+  /// accessibility settings. The [TextStyle.fontSize] of the text will be
+  /// adjusted by the [TextScaler] before the text is laid out and rendered.
+  /// {@endtemplate}
+  ///
+  /// The [layout] method must be called after [textScaler] changes as it
+  /// affects the text layout.
+  TextScaler get textScaler => _textScaler;
+  TextScaler _textScaler;
+  set textScaler(TextScaler value) {
+    if (value == _textScaler) {
       return;
     }
-    _textScaleFactor = value;
+    _textScaler = value;
     markNeedsLayout();
     _layoutTemplate?.dispose();
     _layoutTemplate = null;
@@ -842,9 +895,9 @@ class TextPainter {
   }
 
   /// {@macro dart.ui.textHeightBehavior}
-  ui.TextHeightBehavior? get textHeightBehavior => _textHeightBehavior;
-  ui.TextHeightBehavior? _textHeightBehavior;
-  set textHeightBehavior(ui.TextHeightBehavior? value) {
+  TextHeightBehavior? get textHeightBehavior => _textHeightBehavior;
+  TextHeightBehavior? _textHeightBehavior;
+  set textHeightBehavior(TextHeightBehavior? value) {
     if (_textHeightBehavior == value) {
       return;
     }
@@ -908,7 +961,7 @@ class TextPainter {
     return _text!.style?.getParagraphStyle(
       textAlign: textAlign,
       textDirection: textDirection ?? defaultTextDirection,
-      textScaleFactor: textScaleFactor,
+      textScaler: textScaler,
       maxLines: _maxLines,
       textHeightBehavior: _textHeightBehavior,
       ellipsis: _ellipsis,
@@ -919,8 +972,8 @@ class TextPainter {
       textDirection: textDirection ?? defaultTextDirection,
       // Use the default font size to multiply by as RichText does not
       // perform inheriting [TextStyle]s and would otherwise
-      // fail to apply textScaleFactor.
-      fontSize: _kDefaultFontSize * textScaleFactor,
+      // fail to apply textScaler.
+      fontSize: textScaler.scale(kDefaultFontSize),
       maxLines: maxLines,
       textHeightBehavior: _textHeightBehavior,
       ellipsis: ellipsis,
@@ -933,7 +986,7 @@ class TextPainter {
     final ui.ParagraphBuilder builder = ui.ParagraphBuilder(
       _createParagraphStyle(TextDirection.rtl),
     ); // direction doesn't matter, text is just a space
-    final ui.TextStyle? textStyle = text?.style?.getTextStyle(textScaleFactor: textScaleFactor);
+    final ui.TextStyle? textStyle = text?.style?.getTextStyle(textScaler: textScaler);
     if (textStyle != null) {
       builder.pushStyle(textStyle);
     }
@@ -1028,7 +1081,7 @@ class TextPainter {
   // assign it to _paragraph.
   ui.Paragraph _createParagraph(InlineSpan text) {
     final ui.ParagraphBuilder builder = ui.ParagraphBuilder(_createParagraphStyle());
-    text.build(builder, textScaleFactor: textScaleFactor, dimensions: _placeholderDimensions);
+    text.build(builder, textScaler: textScaler, dimensions: _placeholderDimensions);
     assert(() {
       _debugMarkNeedsLayoutCallStack = null;
       return true;
@@ -1442,7 +1495,24 @@ class TextPainter {
       : boxes.map((TextBox box) => _shiftTextBox(box, offset)).toList(growable: false);
   }
 
-  /// Returns the position within the text for the given pixel offset.
+  /// Returns the [GlyphInfo] of the glyph closest to the given `offset` in the
+  /// paragraph coordinate system, or null if the text is empty, or is entirely
+  /// clipped or ellipsized away.
+  ///
+  /// This method first finds the line closest to `offset.dy`, and then returns
+  /// the [GlyphInfo] of the closest glyph(s) within that line.
+   ui.GlyphInfo? getClosestGlyphForOffset(Offset offset) {
+    assert(_debugAssertTextLayoutIsValid);
+    assert(!_debugNeedsRelayout);
+    final _TextPainterLayoutCacheWithOffset cachedLayout = _layoutCache!;
+    final ui.GlyphInfo? rawGlyphInfo = cachedLayout.paragraph.getClosestGlyphInfoForOffset(offset - cachedLayout.paintOffset);
+    if (rawGlyphInfo == null || cachedLayout.paintOffset == Offset.zero) {
+      return rawGlyphInfo;
+    }
+    return ui.GlyphInfo(rawGlyphInfo.graphemeClusterLayoutBounds.shift(cachedLayout.paintOffset), rawGlyphInfo.graphemeClusterCodeUnitRange, rawGlyphInfo.writingDirection);
+  }
+
+  /// Returns the closest position within the text for the given pixel offset.
   TextPosition getPositionForOffset(Offset offset) {
     assert(_debugAssertTextLayoutIsValid);
     assert(!_debugNeedsRelayout);
@@ -1559,6 +1629,11 @@ class TextPainter {
       _disposed = true;
       return true;
     }());
+    // TODO(polina-c): stop duplicating code across disposables
+    // https://github.com/flutter/flutter/issues/137435
+    if (kFlutterMemoryAllocationsEnabled) {
+      FlutterMemoryAllocations.instance.dispatchObjectDisposed(object: this);
+    }
     _layoutTemplate?.dispose();
     _layoutTemplate = null;
     _layoutCache?.paragraph.dispose();

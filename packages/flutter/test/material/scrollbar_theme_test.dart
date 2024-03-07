@@ -9,8 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/mock_canvas.dart';
-
 // The const represents the starting position of the scrollbar thumb for
 // the below tests. The thumb is 90 pixels long, and 8 pixels wide, with a 2
 // pixel margin to the right edge of the viewport.
@@ -114,6 +112,8 @@ void main() {
           color: const Color(0x80000000),
         ),
     );
+
+    scrollController.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{
        TargetPlatform.linux,
        TargetPlatform.macOS,
@@ -205,6 +205,8 @@ void main() {
           color: const Color(0xff2196f3),
         ),
     );
+
+    scrollController.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{
        TargetPlatform.linux,
        TargetPlatform.macOS,
@@ -254,6 +256,8 @@ void main() {
             color: const Color(0xFF000000),
           ),
       );
+
+      scrollController.dispose();
     },
   );
 
@@ -302,6 +306,8 @@ void main() {
         color: _kDefaultIdleThumbColor,
       ),
     );
+
+    scrollController.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{ TargetPlatform.fuchsia }));
 
   testWidgets('Scrollbar.interactive takes priority over ScrollbarTheme', (WidgetTester tester) async {
@@ -350,6 +356,8 @@ void main() {
         color: _kDefaultIdleThumbColor,
       ),
     );
+
+    scrollController.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{ TargetPlatform.fuchsia }));
 
   testWidgets('Scrollbar widget properties take priority over theme', (WidgetTester tester) async {
@@ -443,6 +451,8 @@ void main() {
           color: const Color(0x80000000),
         ),
     );
+
+    scrollController.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{
        TargetPlatform.linux,
        TargetPlatform.macOS,
@@ -452,30 +462,34 @@ void main() {
   );
 
   testWidgets('ThemeData colorScheme is used when no ScrollbarTheme is set', (WidgetTester tester) async {
-    Widget buildFrame(ThemeData appTheme) {
+    (ScrollController, Widget) buildFrame(ThemeData appTheme) {
       final ScrollController scrollController = ScrollController();
-      return MaterialApp(
-        theme: appTheme,
-        home: ScrollConfiguration(
-          behavior: const NoScrollbarBehavior(),
-          child: Scrollbar(
-            thumbVisibility: true,
-            showTrackOnHover: true,
-            controller: scrollController,
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: const SizedBox(width: 4000.0, height: 4000.0),
+      return (
+          scrollController,
+          MaterialApp(
+            theme: appTheme,
+            home: ScrollConfiguration(
+              behavior: const NoScrollbarBehavior(),
+              child: Scrollbar(
+                thumbVisibility: true,
+                showTrackOnHover: true,
+                controller: scrollController,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: const SizedBox(width: 4000.0, height: 4000.0),
+                ),
+              ),
             ),
           ),
-        ),
-      );
+        );
     }
 
     // Scrollbar defaults for light themes:
     // - coloring based on ColorScheme.onSurface
-    await tester.pumpWidget(buildFrame(ThemeData(
+    final (ScrollController controller1, Widget frame1) = buildFrame(ThemeData(
       colorScheme: const ColorScheme.light(),
-    )));
+    ));
+    await tester.pumpWidget(frame1);
     await tester.pumpAndSettle();
     // Idle scrollbar behavior
     expect(
@@ -546,9 +560,10 @@ void main() {
 
     // Scrollbar defaults for dark themes:
     // - coloring slightly different based on ColorScheme.onSurface
-    await tester.pumpWidget(buildFrame(ThemeData(
+    final (ScrollController controller2, Widget frame2) = buildFrame(ThemeData(
       colorScheme: const ColorScheme.dark(),
-    )));
+    ));
+    await tester.pumpWidget(frame2);
     await tester.pumpAndSettle(); // Theme change animation
 
     // Idle scrollbar behavior
@@ -611,6 +626,9 @@ void main() {
           color: const Color(0xa6ffffff),
         ),
     );
+
+    controller1.dispose();
+    controller2.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{
        TargetPlatform.linux,
        TargetPlatform.macOS,
@@ -657,6 +675,8 @@ void main() {
         )
         ..rrect(color: const Color(0xff4caf50)),
     );
+
+    scrollController.dispose();
   }, variant: const TargetPlatformVariant(<TargetPlatform>{
     TargetPlatform.linux,
     TargetPlatform.macOS,

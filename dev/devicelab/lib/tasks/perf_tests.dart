@@ -9,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as path;
+import 'package:xml/xml.dart';
 
 import '../framework/devices.dart';
 import '../framework/framework.dart';
@@ -27,6 +28,7 @@ TaskFunction createComplexLayoutScrollPerfTest({
   bool measureCpuGpu = true,
   bool badScroll = false,
   bool? enableImpeller,
+  bool forceOpenGLES = false,
 }) {
   return PerfTest(
     '${flutterDirectory.path}/dev/benchmarks/complex_layout',
@@ -36,6 +38,7 @@ TaskFunction createComplexLayoutScrollPerfTest({
     'complex_layout_scroll_perf',
     measureCpuGpu: measureCpuGpu,
     enableImpeller: enableImpeller,
+    forceOpenGLES: forceOpenGLES,
   ).run;
 }
 
@@ -142,6 +145,7 @@ TaskFunction createBackdropFilterPerfTest({
     testDriver: 'test_driver/backdrop_filter_perf_test.dart',
     saveTraceFile: true,
     enableImpeller: enableImpeller,
+    disablePartialRepaint: true,
   ).run;
 }
 
@@ -307,6 +311,13 @@ TaskFunction createTextfieldPerfE2ETest() {
   ).run;
 }
 
+TaskFunction createVeryLongPictureScrollingPerfE2ETest({required bool enableImpeller}) {
+  return PerfTest.e2e(
+    '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+    'test/very_long_picture_scrolling_perf_e2e.dart',
+    enableImpeller: enableImpeller,
+  ).run;
+}
 TaskFunction createSlidersPerfTest() {
   return PerfTest(
     '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
@@ -628,14 +639,31 @@ TaskFunction createGradientStaticPerfE2ETest() {
   ).run;
 }
 
+TaskFunction createAnimatedAdvancedBlendPerfTest({
+  bool? enableImpeller,
+  bool? forceOpenGLES,
+}) {
+  return PerfTest(
+    '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+    'test_driver/run_app.dart',
+    'animated_advanced_blend_perf',
+    enableImpeller: enableImpeller,
+    forceOpenGLES: forceOpenGLES,
+    testDriver: 'test_driver/animated_advanced_blend_perf_test.dart',
+    saveTraceFile: true,
+  ).run;
+}
+
 TaskFunction createAnimatedBlurBackropFilterPerfTest({
   bool? enableImpeller,
+  bool? forceOpenGLES,
 }) {
   return PerfTest(
     '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
     'test_driver/run_app.dart',
     'animated_blur_backdrop_filter_perf',
     enableImpeller: enableImpeller,
+    forceOpenGLES: forceOpenGLES,
     testDriver: 'test_driver/animated_blur_backdrop_filter_perf_test.dart',
     saveTraceFile: true,
   ).run;
@@ -650,6 +678,56 @@ TaskFunction createDrawPointsPerfTest({
     'draw_points_perf',
     enableImpeller: enableImpeller,
     testDriver: 'test_driver/draw_points_perf_test.dart',
+    saveTraceFile: true,
+  ).run;
+}
+
+TaskFunction createDrawAtlasPerfTest({
+  bool? forceOpenGLES,
+}) {
+  return PerfTest(
+    '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+    'test_driver/run_app.dart',
+    'draw_atlas_perf',
+    enableImpeller: true,
+    testDriver: 'test_driver/draw_atlas_perf_test.dart',
+    saveTraceFile: true,
+    forceOpenGLES: forceOpenGLES,
+  ).run;
+}
+
+TaskFunction createDrawVerticesPerfTest({
+  bool? forceOpenGLES,
+}) {
+  return PerfTest(
+    '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+    'test_driver/run_app.dart',
+    'draw_vertices_perf',
+    enableImpeller: true,
+    testDriver: 'test_driver/draw_vertices_perf_test.dart',
+    saveTraceFile: true,
+    forceOpenGLES: forceOpenGLES,
+  ).run;
+}
+
+TaskFunction createPathTessellationStaticPerfTest() {
+  return PerfTest(
+    '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+    'test_driver/run_app.dart',
+    'tessellation_perf_static',
+    enableImpeller: true,
+    testDriver: 'test_driver/path_tessellation_static_perf_test.dart',
+    saveTraceFile: true,
+  ).run;
+}
+
+TaskFunction createPathTessellationDynamicPerfTest() {
+  return PerfTest(
+    '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+    'test_driver/run_app.dart',
+    'tessellation_perf_dynamic',
+    enableImpeller: true,
+    testDriver: 'test_driver/path_tessellation_dynamic_perf_test.dart',
     saveTraceFile: true,
   ).run;
 }
@@ -690,6 +768,115 @@ Map<String, dynamic> _average(List<Map<String, dynamic>> results, int iterations
     tally[key] = (value as int) ~/ iterations;
   });
   return tally;
+}
+
+/// Opens the file at testDirectory + 'ios/Runner/Info.plist'
+/// and adds the following entry to the application.
+/// <FTLDisablePartialRepaint/>
+/// <true/>
+void _disablePartialRepaint(String testDirectory) {
+  final String manifestPath = path.join(
+      testDirectory, 'ios', 'Runner', 'Info.plist');
+  final File file = File(manifestPath);
+
+  if (!file.existsSync()) {
+    throw Exception('Info.plist not found at $manifestPath');
+  }
+
+  final String xmlStr = file.readAsStringSync();
+  final XmlDocument xmlDoc = XmlDocument.parse(xmlStr);
+  final List<(String, String)> keyPairs = <(String, String)>[
+    ('FLTDisablePartialRepaint', 'true'),
+  ];
+
+  final XmlElement applicationNode =
+      xmlDoc.findAllElements('dict').first;
+
+  // Check if the meta-data node already exists.
+  for (final (String key, String value) in keyPairs) {
+    applicationNode.children.add(XmlElement(XmlName('key'), <XmlAttribute>[], <XmlNode>[
+      XmlText(key)
+    ], false));
+    applicationNode.children.add(XmlElement(XmlName(value)));
+  }
+
+  file.writeAsStringSync(xmlDoc.toXmlString(pretty: true, indent: '    '));
+}
+
+Future<void> _resetPlist(String testDirectory) async {
+  final String manifestPath = path.join(
+      testDirectory, 'ios', 'Runner', 'Info.plist');
+  final File file = File(manifestPath);
+
+  if (!file.existsSync()) {
+    throw Exception('Info.plist not found at $manifestPath');
+  }
+
+  await exec('git', <String>['checkout', file.path]);
+}
+
+/// Opens the file at testDirectory + 'android/app/src/main/AndroidManifest.xml'
+/// and adds the following entry to the application.
+/// <meta-data
+///   android:name="io.flutter.embedding.android.ImpellerBackend"
+///   android:value="opengles" />
+/// <meta-data
+///   android:name="io.flutter.embedding.android.EnableOpenGLGPUTracing"
+///   android:value="true" />
+void _addOpenGLESToManifest(String testDirectory) {
+  final String manifestPath = path.join(
+      testDirectory, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+  final File file = File(manifestPath);
+
+  if (!file.existsSync()) {
+    throw Exception('AndroidManifest.xml not found at $manifestPath');
+  }
+
+  final String xmlStr = file.readAsStringSync();
+  final XmlDocument xmlDoc = XmlDocument.parse(xmlStr);
+  final List<(String, String)> keyPairs = <(String, String)>[
+    ('io.flutter.embedding.android.ImpellerBackend', 'opengles'),
+    ('io.flutter.embedding.android.EnableOpenGLGPUTracing', 'true')
+  ];
+
+  final XmlElement applicationNode =
+      xmlDoc.findAllElements('application').first;
+
+  // Check if the meta-data node already exists.
+  for (final (String key, String value) in keyPairs) {
+    final Iterable<XmlElement> existingMetaData = applicationNode
+        .findAllElements('meta-data')
+        .where((XmlElement node) => node.getAttribute('android:name') == key);
+
+    if (existingMetaData.isNotEmpty) {
+      final XmlElement existingEntry = existingMetaData.first;
+      existingEntry.setAttribute('android:value', value);
+    } else {
+      final XmlElement metaData = XmlElement(
+        XmlName('meta-data'),
+        <XmlAttribute>[
+          XmlAttribute(XmlName('android:name'), key),
+          XmlAttribute(XmlName('android:value'), value)
+        ],
+      );
+
+      applicationNode.children.add(metaData);
+    }
+  }
+
+  file.writeAsStringSync(xmlDoc.toXmlString(pretty: true, indent: '    '));
+}
+
+Future<void> _resetManifest(String testDirectory) async {
+  final String manifestPath = path.join(
+      testDirectory, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+  final File file = File(manifestPath);
+
+  if (!file.existsSync()) {
+    throw Exception('AndroidManifest.xml not found at $manifestPath');
+  }
+
+  await exec('git', <String>['checkout', file.path]);
 }
 
 /// Measure application startup performance.
@@ -754,6 +941,7 @@ class StartupTest {
              '-v',
             '--profile',
             '--target=$target',
+            if (deviceOperatingSystem == DeviceOperatingSystem.ios) '--no-publish-port',
           ]);
           final String buildRoot = path.join(testDirectory, 'build');
           applicationBinaryPath = _findDarwinAppInBuildDirectory(buildRoot);
@@ -769,6 +957,7 @@ class StartupTest {
             testDirectory,
             'build',
             'windows',
+            'x64',
             'runner',
             'Profile',
             '$basename.exe'
@@ -778,6 +967,18 @@ class StartupTest {
       const int maxFailures = 3;
       int currentFailures = 0;
       for (int i = 0; i < iterations; i += 1) {
+<<<<<<< HEAD
+=======
+        // Startup should not take more than a few minutes. After 10 minutes,
+        // take a screenshot to help debug.
+        final Timer timer = Timer(const Duration(minutes: 10), () async {
+          print('Startup not completed within 10 minutes. Taking a screenshot...');
+          await _flutterScreenshot(
+            device.deviceId,
+            'screenshot_startup_${DateTime.now().toLocal().toIso8601String()}.png',
+          );
+        });
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
         final int result = await flutter(
           'run',
           options: <String>[
@@ -786,6 +987,12 @@ class StartupTest {
             '--verbose',
             '--profile',
             '--trace-startup',
+<<<<<<< HEAD
+=======
+            // TODO(vashworth): Remove once done debugging https://github.com/flutter/flutter/issues/129836
+            if (device is IosDevice)
+              '--verbose-system-logs',
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
             '--target=$target',
             '-d',
             device.deviceId,
@@ -795,6 +1002,10 @@ class StartupTest {
           environment: runEnvironment,
           canFail: true,
         );
+<<<<<<< HEAD
+=======
+        timer.cancel();
+>>>>>>> 7482962148e8d758338d8a28f589f317e1e42ba4
         if (result == 0) {
           final Map<String, dynamic> data = json.decode(
             file('${_testOutputDirectory(testDirectory)}/start_up_info.json').readAsStringSync(),
@@ -802,31 +1013,17 @@ class StartupTest {
           results.add(data);
         } else {
           currentFailures += 1;
-          if (hostAgent.dumpDirectory != null) {
-            await flutter(
-              'screenshot',
-              options: <String>[
-                '-d',
-                device.deviceId,
-                '--out',
-                hostAgent.dumpDirectory!
-                    .childFile('screenshot_startup_failure_$currentFailures.png')
-                    .path,
-              ],
-              canFail: true,
-            );
-          }
+          await _flutterScreenshot(
+            device.deviceId,
+            'screenshot_startup_failure_$currentFailures.png',
+          );
           i -= 1;
           if (currentFailures == maxFailures) {
             return TaskResult.failure('Application failed to start $maxFailures times');
           }
         }
 
-        await flutter('install', options: <String>[
-          '--uninstall-only',
-          '-d',
-          device.deviceId,
-        ]);
+        await device.uninstallApp();
       }
 
       final Map<String, dynamic> averageResults = _average(results, iterations);
@@ -840,6 +1037,23 @@ class StartupTest {
         'timeToFirstFrameRasterizedMicros',
       ]);
     });
+  }
+
+  Future<void> _flutterScreenshot(String deviceId, String screenshotName) async {
+    if (hostAgent.dumpDirectory != null) {
+      await flutter(
+        'screenshot',
+        options: <String>[
+          '-d',
+          deviceId,
+          '--out',
+          hostAgent.dumpDirectory!
+              .childFile(screenshotName)
+              .path,
+        ],
+        canFail: true,
+      );
+    }
   }
 }
 
@@ -931,11 +1145,7 @@ class DevtoolsStartupTest {
         await process.exitCode;
       }
 
-      await flutter('install', options: <String>[
-        '--uninstall-only',
-        '-d',
-        device.deviceId,
-      ]);
+      await device.uninstallApp();
 
       if (sawLine) {
         return TaskResult.success(null, benchmarkScoreKeys: <String>[]);
@@ -970,6 +1180,8 @@ class PerfTest {
     this.flutterDriveCallback,
     this.timeoutSeconds,
     this.enableImpeller,
+    this.forceOpenGLES,
+    this.disablePartialRepaint = false,
   }): _resultFilename = resultFilename;
 
   const PerfTest.e2e(
@@ -987,6 +1199,8 @@ class PerfTest {
     this.flutterDriveCallback,
     this.timeoutSeconds,
     this.enableImpeller,
+    this.forceOpenGLES,
+    this.disablePartialRepaint = false,
   }) : saveTraceFile = false, timelineFileName = null, _resultFilename = resultFilename;
 
   /// The directory where the app under test is defined.
@@ -1022,6 +1236,12 @@ class PerfTest {
 
   /// Whether the perf test should enable Impeller.
   final bool? enableImpeller;
+
+  /// Whether the perf test force Impeller's OpenGLES backend.
+  final bool? forceOpenGLES;
+
+  /// Whether partial repaint functionality should be disabled (iOS only).
+  final bool disablePartialRepaint;
 
   /// Number of seconds to time out the test after, allowing debug callbacks to run.
   final int? timeoutSeconds;
@@ -1069,42 +1289,89 @@ class PerfTest {
       await selectedDevice.unlock();
       final String deviceId = selectedDevice.deviceId;
       final String? localEngine = localEngineFromEnv;
+      final String? localEngineHost = localEngineHostFromEnv;
       final String? localEngineSrcPath = localEngineSrcPathFromEnv;
 
-      final List<String> options = <String>[
-        if (localEngine != null)
-          ...<String>['--local-engine', localEngine],
-        if (localEngineSrcPath != null)
-          ...<String>['--local-engine-src-path', localEngineSrcPath],
-        '--no-dds',
-        '--no-android-gradle-daemon',
-        '-v',
-        '--verbose-system-logs',
-        '--profile',
-        if (timeoutSeconds != null)
-          ...<String>[
+      bool changedPlist = false;
+      bool changedManifest = false;
+
+      Future<void> resetManifest() async {
+        if (!changedManifest) {
+          return;
+        }
+        try {
+          await _resetManifest(testDirectory);
+        } catch (err) {
+          print('Caught exception while trying to reset AndroidManifest: $err');
+        }
+      }
+
+      Future<void> resetPlist() async {
+        if (!changedPlist) {
+          return;
+        }
+        try {
+          await _resetPlist(testDirectory);
+        } catch (err) {
+           print('Caught exception while trying to reset Info.plist: $err');
+        }
+      }
+
+      try {
+        if (forceOpenGLES ?? false) {
+          assert(enableImpeller!);
+          changedManifest = true;
+          _addOpenGLESToManifest(testDirectory);
+        }
+        if (disablePartialRepaint) {
+          changedPlist = true;
+          _disablePartialRepaint(testDirectory);
+        }
+
+        final List<String> options = <String>[
+          if (localEngine != null) ...<String>['--local-engine', localEngine],
+          if (localEngineHost != null) ...<String>[
+            '--local-engine-host',
+            localEngineHost
+          ],
+          if (localEngineSrcPath != null) ...<String>[
+            '--local-engine-src-path',
+            localEngineSrcPath
+          ],
+          '--no-dds',
+          '--no-android-gradle-daemon',
+          '-v',
+          '--verbose-system-logs',
+          '--profile',
+          if (timeoutSeconds != null) ...<String>[
             '--timeout',
             timeoutSeconds.toString(),
           ],
-        if (needsFullTimeline)
-          '--trace-startup', // Enables "endless" timeline event buffering.
-        '-t', testTarget,
-        if (testDriver != null)
-          ...<String>['--driver', testDriver!],
-        if (existingApp != null)
-          ...<String>['--use-existing-app', existingApp],
-        if (dartDefine.isNotEmpty)
-          ...<String>['--dart-define', dartDefine],
-        if (enableImpeller != null && enableImpeller!) '--enable-impeller',
-        if (enableImpeller != null && !enableImpeller!) '--no-enable-impeller',
-        '-d',
-        deviceId,
-      ];
-      if (flutterDriveCallback != null) {
-        flutterDriveCallback!(options);
-      } else {
-        await flutter('drive', options: options);
+          if (needsFullTimeline)
+            '--trace-startup', // Enables "endless" timeline event buffering.
+          '-t', testTarget,
+          if (testDriver != null) ...<String>['--driver', testDriver!],
+          if (existingApp != null) ...<String>[
+            '--use-existing-app',
+            existingApp
+          ],
+          if (dartDefine.isNotEmpty) ...<String>['--dart-define', dartDefine],
+          if (enableImpeller != null && enableImpeller!) '--enable-impeller',
+          if (enableImpeller != null && !enableImpeller!)
+            '--no-enable-impeller',
+          '-d',
+          deviceId,
+        ];
+        if (flutterDriveCallback != null) {
+          flutterDriveCallback!(options);
+        } else {
+          await flutter('drive', options: options);
+        }
+      } finally {
+        await resetManifest();
+        await resetPlist();
       }
+
       final Map<String, dynamic> data = json.decode(
         file('${_testOutputDirectory(testDirectory)}/$resultFilename.json').readAsStringSync(),
       ) as Map<String, dynamic>;
@@ -1114,6 +1381,22 @@ class PerfTest {
           'Timeline contains too few frames: ${data['frame_count']}. Possibly '
           'trace events are not being captured.',
         );
+      }
+
+      final bool recordGPU;
+      switch (deviceOperatingSystem) {
+        case DeviceOperatingSystem.ios:
+          recordGPU = true;
+        case DeviceOperatingSystem.android:
+        case DeviceOperatingSystem.androidArm:
+        case DeviceOperatingSystem.androidArm64:
+          recordGPU = enableImpeller ?? false;
+        case DeviceOperatingSystem.fake:
+        case DeviceOperatingSystem.fuchsia:
+        case DeviceOperatingSystem.linux:
+        case DeviceOperatingSystem.macos:
+        case DeviceOperatingSystem.windows:
+          recordGPU = false;
       }
 
       // TODO(liyuqian): Remove isAndroid restriction once
@@ -1130,6 +1413,9 @@ class PerfTest {
           'average_vsync_transitions_missed',
           '90th_percentile_vsync_transitions_missed',
           '99th_percentile_vsync_transitions_missed',
+          'average_frame_request_pending_latency',
+          '90th_percentile_frame_request_pending_latency',
+          '99th_percentile_frame_request_pending_latency',
           if (measureCpuGpu && !isAndroid) ...<String>[
             // See https://github.com/flutter/flutter/issues/68888
             if (data['average_cpu_usage'] != null) 'average_cpu_usage',
@@ -1148,6 +1434,12 @@ class PerfTest {
           if (data['90hz_frame_percentage'] != null) '90hz_frame_percentage',
           if (data['120hz_frame_percentage'] != null) '120hz_frame_percentage',
           if (data['illegal_refresh_rate_frame_count'] != null) 'illegal_refresh_rate_frame_count',
+          if (recordGPU) ...<String>[
+            if (data['average_gpu_frame_time'] != null) 'average_gpu_frame_time',
+            if (data['90th_percentile_gpu_frame_time'] != null) '90th_percentile_gpu_frame_time',
+            if (data['99th_percentile_gpu_frame_time'] != null) '99th_percentile_gpu_frame_time',
+            if (data['worst_gpu_frame_time'] != null) 'worst_gpu_frame_time',
+          ]
         ],
       );
     });
@@ -1179,7 +1471,6 @@ const List<String> _kCommonScoreKeys = <String>[
   '90th_percentile_picture_cache_memory',
   '99th_percentile_picture_cache_memory',
   'worst_picture_cache_memory',
-  'new_gen_gc_count',
   'old_gen_gc_count',
 ];
 
@@ -1405,7 +1696,17 @@ class CompileTest {
         options.add('--tree-shake-icons');
         options.add('--split-debug-info=infos/');
         watch.start();
-        await flutter('build', options: options);
+        await flutter(
+          'build',
+          options: options,
+          environment: <String, String> {
+            // iOS 12.1 and lower did not have Swift ABI compatibility so Swift apps embedded the Swift runtime.
+            // https://developer.apple.com/documentation/xcode-release-notes/swift-5-release-notes-for-xcode-10_2#App-Thinning
+            // The gallery pulls in Swift plugins. Set lowest version to 12.2 to avoid benchmark noise.
+            // This should be removed when when Flutter's minimum supported version is >12.2.
+            'FLUTTER_XCODE_IPHONEOS_DEPLOYMENT_TARGET': '12.2',
+          },
+        );
         watch.stop();
         final Directory buildDirectory = dir(path.join(
           cwd,
@@ -1475,6 +1776,7 @@ class CompileTest {
           cwd,
           'build',
           'windows',
+          'x64',
           'runner',
           'release',
           '$basename.exe');
@@ -1672,7 +1974,7 @@ class MemoryTest {
       }
 
       await adb.cancel();
-      await flutter('install', options: <String>['--uninstall-only', '-d', device!.deviceId]);
+      await device!.uninstallApp();
 
       final ListStatistics startMemoryStatistics = ListStatistics(_startMemory);
       final ListStatistics endMemoryStatistics = ListStatistics(_endMemory);
@@ -1808,14 +2110,11 @@ enum ReportedDurationTestFlavor {
 }
 
 String _reportedDurationTestToString(ReportedDurationTestFlavor flavor) {
-  switch (flavor) {
-    case ReportedDurationTestFlavor.debug:
-      return 'debug';
-    case ReportedDurationTestFlavor.profile:
-      return 'profile';
-    case ReportedDurationTestFlavor.release:
-      return 'release';
-  }
+  return switch (flavor) {
+    ReportedDurationTestFlavor.debug   => 'debug',
+    ReportedDurationTestFlavor.profile => 'profile',
+    ReportedDurationTestFlavor.release => 'release',
+  };
 }
 
 class ReportedDurationTest {
